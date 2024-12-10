@@ -37,7 +37,7 @@ def generate_response(query_text):
     document_text = load_static_data()
 
     # Split documents into manageable chunks
-    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
+    text_splitter = CharacterTextSplitter(chunk_size=800, chunk_overlap=50)
     texts = text_splitter.split_text(document_text)
 
     # Select embeddings
@@ -51,7 +51,14 @@ def generate_response(query_text):
     )
 
     # Create retriever interface
-    retriever = db.as_retriever(search_type="similarity", search_kwargs={"k": min(5, len(texts))})  # Adjust number of results
+    retriever = db.as_retriever(search_type="similarity", search_kwargs={"k": min(3, len(texts))})  # Adjust number of results
+
+    # Ensure prompt length is within model limits
+    retrieved_docs = retriever.get_relevant_documents(query_text)
+    combined_text = "\n".join([doc.page_content for doc in retrieved_docs])
+
+    if len(combined_text) + len(query_text) > 4000:
+        raise ValueError("The retrieved context is too large to process. Please refine your query.")
 
     # Create QA chain
     qa = RetrievalQA.from_chain_type(
