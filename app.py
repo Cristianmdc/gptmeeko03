@@ -1,20 +1,14 @@
 import streamlit as st
-from langchain_community.llms import OpenAI
+from langchain_openai import OpenAI
 from langchain.text_splitter import CharacterTextSplitter
-from langchain_community.embeddings import OpenAIEmbeddings
-from langchain_community.vectorstores import Chroma
-from langchain.chains import RetrievalQA
-import pysqlite3
-import sys
-import os
+from langchain.chains.question_answering import load_qa_chain
 from PyPDF2 import PdfReader
+import os
 
-# Replace sqlite3 module with pysqlite3 for Chroma compatibility
-sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
-
-# Access the OpenAI API key from Streamlit secrets
-api_key = st.secrets["YOUR_OPENAI_API_KEY"]
-YOUR_OPENAI_API_KEY = st.secrets["YOUR_OPENAI_API_KEY"]
+# Access the OpenAI API key from environment variables or Streamlit secrets
+YOUR_OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", st.secrets.get("YOUR_OPENAI_API_KEY", ""))
+if not YOUR_OPENAI_API_KEY:
+    raise ValueError("OpenAI API Key is not set. Please add it to the environment variables or Streamlit secrets.")
 
 # Function to extract text from the PDF
 def extract_text_from_pdf(pdf_path):
@@ -30,71 +24,36 @@ def load_static_data():
     return extract_text_from_pdf(pdf_path)
 
 def generate_response(query_text):
-    if not YOUR_OPENAI_API_KEY:
-        raise ValueError("OpenAI API Key is not set. Please set it in the environment variables.")
-
     # Load and preprocess data
+    print("Loading static data from PDF...")
     document_text = load_static_data()
 
     # Split documents into manageable chunks
-    text_splitter = CharacterTextSplitter(chunk_size=800, chunk_overlap=50)
+    print("Splitting documents into chunks...")
+    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
     texts = text_splitter.split_text(document_text)
 
-    # Select embeddings
-    embeddings = OpenAIEmbeddings(openai_api_key=YOUR_OPENAI_API_KEY)
-
-    # Initialize Chroma vector store with a persistence directory
-    db = Chroma.from_texts(
-        texts,
-        embeddings,
-        persist_directory=".chroma_data"  # Directory for persistence
-    )
-
-    # Create retriever interface
-    retriever = db.as_retriever(search_type="similarity", search_kwargs={"k": min(3, len(texts))})  # Adjust number of results
-
-    # Ensure prompt length is within model limits
-    retrieved_docs = retriever.invoke(query_text)
-    combined_text = "\n".join([doc.page_content for doc in retrieved_docs])
-
-    max_token_limit = 4000
-
-    if len(combined_text) + len(query_text) > max_token_limit:
-        # Process text in chunks if it exceeds token limits
-        max_fit_length = max_token_limit - len(query_text) - 100  # Allowing buffer
-        words = combined_text.split()
-        truncated_text = []
-        total_length = 0
-        for word in words:
-            total_length += len(word) + 1  # Including space
-            if total_length > max_fit_length:
-                break
-            truncated_text.append(word)
-        combined_text = " ".join(truncated_text)
+    # Prepare documents for QA chain
+    input_documents = [{"content": text} for text in texts]
 
     # Create QA chain
-    qa = RetrievalQA.from_chain_type(
-        llm=OpenAI(openai_api_key=YOUR_OPENAI_API_KEY, temperature=0),
-        chain_type="map_reduce",
-        retriever=retriever
-    )
-
-    # Split large context into smaller queries for iterative processing if necessary
-    if len(combined_text) + len(query_text) > max_token_limit:
-        responses = []
-        chunks = [combined_text[i:i+max_fit_length] for i in range(0, len(combined_text), max_fit_length)]
-        for chunk in chunks:
-            partial_query = f"{query_text}\n\n{chunk}"
-            responses.append(qa.run(partial_query))
-        return "\n\n".join(responses)
-
-    return qa.run(query_text)
+    print("Creating QA chain...")
+    qa_chain = load_qa_chain(llm=OpenAI(openai_api_key=YOUR_OPENAI_API_KEY, temperature=0), chain_type="stuff")
+    print("Running QA chain...")
+    return qa_chain.run({"input_documents": input_documents, "question": query_text})
 
 # Streamlit page title and description
-st.set_page_config(page_title='GPT Chatbot with PDF Data')
-st.title('📄 GPT Chatbot: PDF Data')
+st.set_page_config(page_title="GPT Chatbot with PDF Data")
+st.title("📄 GPT Chatbot: PDF Data")
 
 # User input for query
-query_text = st.text_input('Enter your question:', placeholder='Ask a specific question about the document.')
+query_text = st.text_input("Enter your question:", placeholder="Ask a specific question about the document.")
 
-# Generate response when
+# Generate response when input is provided
+if st.button("Submit") and query_text:
+    with st.spinner("Processing your request..."):
+        try:
+            response = generate_response(query_text)
+            st.success(response)
+        except Exception as e:
+            st.error(f"An error occurred: {e}")
