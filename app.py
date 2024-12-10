@@ -1,5 +1,5 @@
 import streamlit as st
-from langchain.llms import OpenAI
+from langchain_community.llms import OpenAI
 from langchain.text_splitter import CharacterTextSplitter
 from langchain_community.embeddings import OpenAIEmbeddings
 from langchain_community.vectorstores import Chroma
@@ -54,7 +54,7 @@ def generate_response(query_text):
     retriever = db.as_retriever(search_type="similarity", search_kwargs={"k": min(3, len(texts))})  # Adjust number of results
 
     # Ensure prompt length is within model limits
-    retrieved_docs = retriever.get_relevant_documents(query_text)
+    retrieved_docs = retriever.invoke(query_text)
     combined_text = "\n".join([doc.page_content for doc in retrieved_docs])
 
     if len(combined_text) + len(query_text) > 4000:
