@@ -58,9 +58,17 @@ def generate_response(query_text):
     combined_text = "\n".join([doc.page_content for doc in retrieved_docs])
 
     if len(combined_text) + len(query_text) > 4000:
-        # Trim the combined text to fit within token limits
+        # Reduce size of retrieved context dynamically
         max_fit_length = 4000 - len(query_text) - 100  # Allowing buffer
-        combined_text = combined_text[:max_fit_length]
+        words = combined_text.split()
+        truncated_text = []
+        total_length = 0
+        for word in words:
+            total_length += len(word) + 1  # Including space
+            if total_length > max_fit_length:
+                break
+            truncated_text.append(word)
+        combined_text = " ".join(truncated_text)
 
     # Create QA chain
     qa = RetrievalQA.from_chain_type(
