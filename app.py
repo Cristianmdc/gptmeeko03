@@ -60,15 +60,8 @@ def generate_response(query_text):
     if len(combined_text) + len(query_text) > 4000:
         # Reduce size of retrieved context dynamically
         max_fit_length = 4000 - len(query_text) - 100  # Allowing buffer
-        words = combined_text.split()
-        truncated_text = []
-        total_length = 0
-        for word in words:
-            total_length += len(word) + 1  # Including space
-            if total_length > max_fit_length:
-                break
-            truncated_text.append(word)
-        combined_text = " ".join(truncated_text)
+        truncated_text = combined_text[:max_fit_length]
+        combined_text = truncated_text
 
     # Create QA chain
     qa = RetrievalQA.from_chain_type(
