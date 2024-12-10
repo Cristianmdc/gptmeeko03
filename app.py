@@ -31,7 +31,7 @@ def generate_response(query_text):
 
     # Split documents into manageable chunks
     print("Splitting documents into chunks...")
-    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=200)  # Adjust chunk size
+    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=200)  # Adjust chunk overlap to maintain context
     texts = text_splitter.split_text(document_text)
 
     # Prepare documents for QA chain
@@ -44,23 +44,18 @@ def generate_response(query_text):
         chain_type="stuff"
     )
 
-    # Summarize each chunk
-    print("Summarizing chunks...")
-    chunk_summaries = []
+    # Process chunks individually and aggregate results
+    print("Processing chunks...")
+    aggregated_response = ""
     for i, doc in enumerate(input_documents):
+        print(f"Processing chunk {i+1}/{len(input_documents)}")
         try:
-            print(f"Processing chunk {i+1}/{len(input_documents)}")
-            summary = qa_chain.run({"input_documents": [doc], "question": "Summarize this document."})
-            chunk_summaries.append(summary)
+            response = qa_chain.run({"input_documents": [doc], "question": query_text})
+            aggregated_response += f"Chunk {i+1}: {response}\n"
         except Exception as e:
-            chunk_summaries.append(f"Error summarizing chunk {i+1}: {str(e)}")
+            aggregated_response += f"Chunk {i+1}: Error occurred: {str(e)}\n"
 
-    # Combine summaries and process the final question
-    combined_summary = " ".join(chunk_summaries)
-    print("Running final QA chain...")
-    final_response = qa_chain.run({"input_documents": [Document(page_content=combined_summary)], "question": query_text})
-
-    return final_response
+    return aggregated_response
 
 # Streamlit page title and description
 st.set_page_config(page_title="GPT Chatbot with PDF Data")
