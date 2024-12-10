@@ -57,19 +57,31 @@ def generate_response(query_text):
     retrieved_docs = retriever.invoke(query_text)
     combined_text = "\n".join([doc.page_content for doc in retrieved_docs])
 
-    if len(combined_text) + len(query_text) > 4000:
-        # Reduce size of retrieved context dynamically
-        max_fit_length = 4000 - len(query_text) - 100  # Allowing buffer
-        truncated_text = combined_text[:max_fit_length]
-        combined_text = truncated_text
+    # Dynamically trim combined text to fit the model's token limit
+    max_token_limit = 4097 - len(query_text) - 256  # Account for query and response tokens
+    if len(combined_text) > max_token_limit:
+        combined_text = combined_text[:max_token_limit]
 
-    # Create QA chain
-    qa = RetrievalQA.from_chain_type(
-        llm=OpenAI(openai_api_key=YOUR_OPENAI_API_KEY, temperature=0),
-        chain_type="stuff",
-        retriever=retriever
-    )
-    return qa.run(query_text)
+    # Split the combined text into smaller chunks if it still exceeds the limit
+    def process_in_batches(text, batch_size):
+        words = text.split()
+        for i in range(0, len(words), batch_size):
+            yield " ".join(words[i:i + batch_size])
+
+    batch_size = max_token_limit // 2  # Smaller manageable chunks
+    responses = []
+    for chunk in process_in_batches(combined_text, batch_size):
+        # Create QA chain for each chunk
+        qa = RetrievalQA.from_chain_type(
+            llm=OpenAI(openai_api_key=YOUR_OPENAI_API_KEY, temperature=0),
+            chain_type="stuff",
+            retriever=retriever
+        )
+        responses.append(qa.run(chunk))
+
+    # Combine responses
+    final_response = "\n".join(responses)
+    return final_response
 
 # Streamlit page title and description
 st.set_page_config(page_title='GPT Chatbot with PDF Data')
