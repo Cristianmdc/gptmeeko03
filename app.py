@@ -57,31 +57,38 @@ def generate_response(query_text):
     retrieved_docs = retriever.invoke(query_text)
     combined_text = "\n".join([doc.page_content for doc in retrieved_docs])
 
-    # Dynamically trim combined text to fit the model's token limit
-    max_token_limit = 4097 - len(query_text) - 256  # Account for query and response tokens
-    if len(combined_text) > max_token_limit:
-        combined_text = combined_text[:max_token_limit]
+    max_token_limit = 4000
 
-    # Split the combined text into smaller chunks if it still exceeds the limit
-    def process_in_batches(text, batch_size):
-        words = text.split()
-        for i in range(0, len(words), batch_size):
-            yield " ".join(words[i:i + batch_size])
+    if len(combined_text) + len(query_text) > max_token_limit:
+        # Process text in chunks if it exceeds token limits
+        max_fit_length = max_token_limit - len(query_text) - 100  # Allowing buffer
+        words = combined_text.split()
+        truncated_text = []
+        total_length = 0
+        for word in words:
+            total_length += len(word) + 1  # Including space
+            if total_length > max_fit_length:
+                break
+            truncated_text.append(word)
+        combined_text = " ".join(truncated_text)
 
-    batch_size = max_token_limit // 2  # Smaller manageable chunks
-    responses = []
-    for chunk in process_in_batches(combined_text, batch_size):
-        # Create QA chain for each chunk
-        qa = RetrievalQA.from_chain_type(
-            llm=OpenAI(openai_api_key=YOUR_OPENAI_API_KEY, temperature=0),
-            chain_type="stuff",
-            retriever=retriever
-        )
-        responses.append(qa.run(chunk))
+    # Create QA chain
+    qa = RetrievalQA.from_chain_type(
+        llm=OpenAI(openai_api_key=YOUR_OPENAI_API_KEY, temperature=0),
+        chain_type="map_reduce",
+        retriever=retriever
+    )
 
-    # Combine responses
-    final_response = "\n".join(responses)
-    return final_response
+    # Split large context into smaller queries for iterative processing if necessary
+    if len(combined_text) + len(query_text) > max_token_limit:
+        responses = []
+        chunks = [combined_text[i:i+max_fit_length] for i in range(0, len(combined_text), max_fit_length)]
+        for chunk in chunks:
+            partial_query = f"{query_text}\n\n{chunk}"
+            responses.append(qa.run(partial_query))
+        return "\n\n".join(responses)
+
+    return qa.run(query_text)
 
 # Streamlit page title and description
 st.set_page_config(page_title='GPT Chatbot with PDF Data')
@@ -90,11 +97,4 @@ st.title('📄 GPT Chatbot: PDF Data')
 # User input for query
 query_text = st.text_input('Enter your question:', placeholder='Ask a specific question about the document.')
 
-# Generate response when input is provided
-if st.button("Submit") and query_text:
-    with st.spinner('Processing your request...'):
-        try:
-            response = generate_response(query_text)
-            st.success(response)
-        except Exception as e:
-            st.error(f"An error occurred: {e}")
+# Generate response when
