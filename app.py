@@ -58,7 +58,9 @@ def generate_response(query_text):
     combined_text = "\n".join([doc.page_content for doc in retrieved_docs])
 
     if len(combined_text) + len(query_text) > 4000:
-        raise ValueError("The retrieved context is too large to process. Please refine your query.")
+        # Trim the combined text to fit within token limits
+        max_fit_length = 4000 - len(query_text) - 100  # Allowing buffer
+        combined_text = combined_text[:max_fit_length]
 
     # Create QA chain
     qa = RetrievalQA.from_chain_type(
