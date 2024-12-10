@@ -1,7 +1,8 @@
 import streamlit as st
-from langchain_openai import OpenAI
+from langchain.openai import OpenAI
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.chains.question_answering import load_qa_chain
+from langchain.schema import Document
 from PyPDF2 import PdfReader
 import os
 
@@ -34,11 +35,14 @@ def generate_response(query_text):
     texts = text_splitter.split_text(document_text)
 
     # Prepare documents for QA chain
-    input_documents = [{"content": text} for text in texts]
+    input_documents = [Document(page_content=text) for text in texts]
 
     # Create QA chain
     print("Creating QA chain...")
-    qa_chain = load_qa_chain(llm=OpenAI(openai_api_key=YOUR_OPENAI_API_KEY, temperature=0), chain_type="stuff")
+    qa_chain = load_qa_chain(
+        llm=OpenAI(openai_api_key=YOUR_OPENAI_API_KEY, temperature=0),
+        chain_type="stuff"
+    )
     print("Running QA chain...")
     return qa_chain.run({"input_documents": input_documents, "question": query_text})
 
