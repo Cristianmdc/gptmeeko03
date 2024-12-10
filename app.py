@@ -31,7 +31,7 @@ def generate_response(query_text):
 
     # Split documents into manageable chunks
     print("Splitting documents into chunks...")
-    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=200)  # Adjust chunk overlap to maintain context
+    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
     texts = text_splitter.split_text(document_text)
 
     # Prepare documents for QA chain
@@ -43,19 +43,8 @@ def generate_response(query_text):
         llm=OpenAI(openai_api_key=YOUR_OPENAI_API_KEY, temperature=0),
         chain_type="stuff"
     )
-
-    # Process chunks individually and aggregate results
-    print("Processing chunks...")
-    aggregated_response = ""
-    for i, doc in enumerate(input_documents):
-        print(f"Processing chunk {i+1}/{len(input_documents)}")
-        try:
-            response = qa_chain.run({"input_documents": [doc], "question": query_text})
-            aggregated_response += f"Chunk {i+1}: {response}\n"
-        except Exception as e:
-            aggregated_response += f"Chunk {i+1}: Error occurred: {str(e)}\n"
-
-    return aggregated_response
+    print("Running QA chain...")
+    return qa_chain.run({"input_documents": input_documents, "question": query_text})
 
 # Streamlit page title and description
 st.set_page_config(page_title="GPT Chatbot with PDF Data")
