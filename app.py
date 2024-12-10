@@ -31,7 +31,7 @@ def generate_response(query_text):
 
     # Split documents into manageable chunks
     print("Splitting documents into chunks...")
-    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=200)  # Adjust chunk overlap to maintain context
+    text_splitter = CharacterTextSplitter(chunk_size=500, chunk_overlap=200)  # Adjust chunk overlap to maintain context
     texts = text_splitter.split_text(document_text)
 
     # Prepare documents for QA chain
