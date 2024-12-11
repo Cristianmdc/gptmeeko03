@@ -8,11 +8,7 @@ from langchain.embeddings.openai import OpenAIEmbeddings
 from PyPDF2 import PdfReader
 
 # Streamlit Page Configuration
-st.image("./header.png")
-st.audio(data)
-st.video(data)
-st.video(data, subtitles="./subs.vtt")
-st.logo("logo.jpg")
+
 st.set_page_config(page_title="PDF GPT Chatbot", layout="centered")
 st.title("📄 Meelko Pellet mill Assisten")
 
