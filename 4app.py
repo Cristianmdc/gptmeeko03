@@ -10,7 +10,7 @@ from PyPDF2 import PdfReader
 # Streamlit Page Configuration
 
 st.set_page_config(page_title="PDF GPT Chatbot", layout="centered")
-st.title("📄 Meelko Pellet mill Assisten")
+st.title("Meelko Pellet mill Assisten")
 
 # Access the OpenAI API key from Streamlit secrets
 OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]  # Ensure this is set in Streamlit secrets
