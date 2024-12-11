@@ -8,3 +8,4 @@ langchain_community
 PyPDF2
 together
 langchain_openai
+faiss-cpu
