@@ -1,5 +1,5 @@
 import streamlit as st
-from langchain.llms import OpenAI
+from langchain_community.llms import OpenAI  # Updated import to avoid deprecation
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.chains.question_answering import load_qa_chain
 from langchain.schema import Document
@@ -10,7 +10,7 @@ st.set_page_config(page_title="PDF GPT Chatbot", layout="centered")
 st.title("📄 GPT Chatbot with PDF Data")
 
 # Access the OpenAI API key from Streamlit secrets
-OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]  # Ensure this is set in Streamlit secrets
+OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
 GPT_MODEL = "gpt-4o-mini"
 
 # Validate API Key
@@ -31,7 +31,7 @@ def extract_text_from_pdf(pdf_path):
 
 # Load the static dataset from the PDF
 def load_static_data():
-    pdf_path = "data/Pellet_mill.pdf"  # Updated path for the PDF file
+    pdf_path = "data/Pellet_mill.pdf"  # Ensure the PDF file is in the "data" directory
     return extract_text_from_pdf(pdf_path)
 
 # Generate a response from the model
