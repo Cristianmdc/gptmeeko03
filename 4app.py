@@ -1,8 +1,10 @@
 import streamlit as st
-from langchain.chat_models import ChatOpenAI
+from langchain_community.chat_models import ChatOpenAI
+from langchain.chains import RetrievalQA
 from langchain.text_splitter import CharacterTextSplitter
-from langchain.chains.question_answering import load_qa_chain
 from langchain.schema import Document
+from langchain.vectorstores import FAISS
+from langchain.embeddings.openai import OpenAIEmbeddings
 from PyPDF2 import PdfReader
 
 # Streamlit Page Configuration
@@ -11,7 +13,7 @@ st.title("📄 GPT Chatbot with PDF Data")
 
 # Access the OpenAI API key from Streamlit secrets
 OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]  # Ensure this is set in Streamlit secrets
-GPT_MODEL = "gpt-4"  # Replace with "gpt-4o-mini" if available and valid
+GPT_MODEL = "gpt-4"
 
 # Validate API Key
 if not OPENAI_API_KEY:
@@ -34,31 +36,39 @@ def load_static_data():
     pdf_path = "data/Pellet_mill.pdf"  # Updated path for the PDF file
     return extract_text_from_pdf(pdf_path)
 
+# Function to prepare FAISS vector store
+def prepare_vector_store(document_text):
+    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+    chunks = text_splitter.split_text(document_text)
+
+    # Convert chunks into Document objects
+    documents = [Document(page_content=chunk) for chunk in chunks]
+
+    # Create embeddings and vector store
+    embeddings = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
+    vector_store = FAISS.from_documents(documents, embeddings)
+
+    return vector_store
+
 # Generate a response from the model
 def generate_response(query_text):
     st.info("Loading and processing PDF data...")
     document_text = load_static_data()
 
-    # Split the document into manageable chunks
-    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-    chunks = text_splitter.split_text(document_text)
+    # Prepare vector store
+    vector_store = prepare_vector_store(document_text)
 
-    # Prepare documents for QA chain
-    input_documents = [Document(page_content=chunk) for chunk in chunks]
+    # Initialize RetrievalQA chain
+    retriever = vector_store.as_retriever()
+    qa_chain = RetrievalQA.from_chain_type(llm=client, retriever=retriever)
 
-    # Create QA chain
-    st.info("Processing chunks to generate response...")
-    aggregated_response = ""
-    for i, doc in enumerate(input_documents):
-        try:
-            # Use ChatOpenAI and chain properly
-            qa_chain = load_qa_chain(client, chain_type="stuff")
-            response = qa_chain.invoke({"input_documents": [doc], "question": query_text})
-            aggregated_response += f"Chunk {i+1} Response:\n{response['output']}\n\n"
-        except Exception as e:
-            aggregated_response += f"Chunk {i+1} Error: {str(e)}\n\n"
-
-    return aggregated_response
+    # Get the answer from the chain
+    st.info("Retrieving answer...")
+    try:
+        response = qa_chain.run(query_text)
+        return response
+    except Exception as e:
+        return f"An error occurred: {e}"
 
 # Streamlit UI for Query Input
 query_text = st.text_input("Enter your question:", placeholder="Ask a specific question about the PDF.")
