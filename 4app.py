@@ -1,5 +1,5 @@
 import streamlit as st
-from langchain_community.llms import OpenAI  # Updated import to avoid deprecation
+from langchain.chat_models import ChatOpenAI
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.chains.question_answering import load_qa_chain
 from langchain.schema import Document
@@ -10,16 +10,16 @@ st.set_page_config(page_title="PDF GPT Chatbot", layout="centered")
 st.title("📄 GPT Chatbot with PDF Data")
 
 # Access the OpenAI API key from Streamlit secrets
-OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
-GPT_MODEL = "gpt-4o-mini"
+OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]  # Ensure this is set in Streamlit secrets
+GPT_MODEL = "gpt-4"  # Replace with "gpt-4o-mini" if available and valid
 
 # Validate API Key
 if not OPENAI_API_KEY:
     st.error("OPENAI_API_KEY is not set. Please add it to Streamlit secrets.")
     st.stop()
 
-# Initialize OpenAI Client
-client = OpenAI(model=GPT_MODEL, temperature=0, openai_api_key=OPENAI_API_KEY)
+# Initialize ChatOpenAI Client
+client = ChatOpenAI(model=GPT_MODEL, temperature=0, openai_api_key=OPENAI_API_KEY)
 
 # Function to extract text from the PDF
 def extract_text_from_pdf(pdf_path):
@@ -31,7 +31,7 @@ def extract_text_from_pdf(pdf_path):
 
 # Load the static dataset from the PDF
 def load_static_data():
-    pdf_path = "data/Pellet_mill.pdf"  # Ensure the PDF file is in the "data" directory
+    pdf_path = "data/Pellet_mill.pdf"  # Updated path for the PDF file
     return extract_text_from_pdf(pdf_path)
 
 # Generate a response from the model
@@ -47,15 +47,14 @@ def generate_response(query_text):
     input_documents = [Document(page_content=chunk) for chunk in chunks]
 
     # Create QA chain
-    qa_chain = load_qa_chain(llm=client, chain_type="stuff")
-
-    # Process each chunk and aggregate responses
     st.info("Processing chunks to generate response...")
     aggregated_response = ""
     for i, doc in enumerate(input_documents):
         try:
-            response = qa_chain.run({"input_documents": [doc], "question": query_text})
-            aggregated_response += f"Chunk {i+1} Response:\n{response}\n\n"
+            # Use ChatOpenAI and chain properly
+            qa_chain = load_qa_chain(client, chain_type="stuff")
+            response = qa_chain.invoke({"input_documents": [doc], "question": query_text})
+            aggregated_response += f"Chunk {i+1} Response:\n{response['output']}\n\n"
         except Exception as e:
             aggregated_response += f"Chunk {i+1} Error: {str(e)}\n\n"
 
